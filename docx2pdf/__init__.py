@@ -20,11 +20,15 @@ def windows(paths, keep_active):
     wdFormatPDF = 17
 
     if paths["batch"]:
-        for docx_filepath in tqdm(sorted(Path(paths["input"]).glob("[!~]*.doc*"))):
+        for docx_filepath in tqdm(sorted(Path(paths["input"]).glob("*.docx"))):
             pdf_filepath = Path(paths["output"]) / (str(docx_filepath.stem) + ".pdf")
-            doc = word.Documents.Open(str(docx_filepath))
-            doc.SaveAs(str(pdf_filepath), FileFormat=wdFormatPDF)
-            doc.Close(0)
+            try:
+                doc = word.Documents.Open(str(docx_filepath))
+                doc.SaveAs(str(pdf_filepath), FileFormat=wdFormatPDF)
+                doc.Close(0)
+            except:
+                print(str(docx_filepath) + ' failed to convert')
+                continue
     else:
         pbar = tqdm(total=1)
         docx_filepath = Path(paths["input"]).resolve()
@@ -58,7 +62,7 @@ def macos(paths, keep_active):
                 break
             yield line.decode("utf-8")
 
-    total = len(list(Path(paths["input"]).glob("*.doc*"))) if paths["batch"] else 1
+    total = len(list(Path(paths["input"]).glob("*.docx"))) if paths["batch"] else 1
     pbar = tqdm(total=total)
     for line in run(cmd):
         try:
@@ -86,7 +90,7 @@ def resolve_paths(input_path, output_path):
         output["output"] = output_path
     else:
         output["batch"] = False
-        assert str(input_path).endswith((".docx", ".DOCX", ".doc", ".DOC"))
+        assert str(input_path).endswith(".docx")
         output["input"] = str(input_path)
         if output_path and output_path.is_dir():
             output_path = str(output_path / (str(input_path.stem) + ".pdf"))
@@ -105,9 +109,7 @@ def convert(input_path, output_path=None, keep_active=False):
     elif sys.platform == "win32":
         return windows(paths, keep_active)
     else:
-        raise NotImplementedError(
-            "docx2pdf is not implemented for linux as it requires Microsoft Word to be installed"
-        )
+        raise NotImplementedError("docx2pdf is not implemented for linux as it requires Microsoft Word to be installed")
 
 
 def cli():
@@ -119,8 +121,7 @@ def cli():
         print(__version__)
         sys.exit(0)
 
-    description = textwrap.dedent(
-        """
+    description = textwrap.dedent("""
     Example Usage:
 
     Convert single docx file in-place from myfile.docx to myfile.pdf:
@@ -137,15 +138,10 @@ def cli():
 
     Batch convert docx folder. Output PDFs will go to a different explicit folder:
         docx2pdf input_dir/ output_dir/
-    """
-    )
+    """)
 
-    formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(
-        prog, max_help_position=32
-    )
-    parser = argparse.ArgumentParser(
-        description=description, formatter_class=formatter_class
-    )
+    formatter_class = lambda prog: argparse.RawDescriptionHelpFormatter(prog, max_help_position=32)
+    parser = argparse.ArgumentParser(description=description, formatter_class=formatter_class)
     parser.add_argument(
         "input",
         help="input file or folder. batch converts entire folder or convert single file",
@@ -157,9 +153,7 @@ def cli():
         default=False,
         help="prevent closing word after conversion",
     )
-    parser.add_argument(
-        "--version", action="store_true", default=False, help="display version and exit"
-    )
+    parser.add_argument("--version", action="store_true", default=False, help="display version and exit")
 
     if len(sys.argv) == 1:
         parser.print_help()
